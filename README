@@ -1,0 +1,28 @@
+Purée is a new language with the following odd mix (purée, one might say) of features:
+Pure functional (like Haskell and Clean)
+Uniqueness typing (like Clean, unlike Haskell)
+Strict per default (like every language on earth except Haskell. More or less)
+Generators/yield/lazy-by-request (like Python, Disciple and well.. all the good ones :)
+Functional object system (like O'Caml. The system will probably be prototype based. sort of.)
+Ducktyping (like Python, Ruby and other object-oriented dynamic languages)
+Static ducktyping (like nothing I know. If I can pull it off)
+Significant whitespace (like Python and Haskell)
+
+There will probably be a precompiler macro system that works on the AST (like LISP, but not homoiconic). The conversion between code and AST must be as predictable as possible. Since the language is pure, there should be nothing stopping access to the entire language compile time.
+
+Design goals are:
+  Programs should get fewer bugs because of functional design and the hopefully static ducktyping
+  Strictness, uniqueness typing, objects and duck typing should make it easier to use than Haskell for most programmers
+  Macro system, syntax sugar, etc should make the language concise
+  Good native support for concurrency (pure functional helps here), even across computers.
+
+Possible later goals in an ideal world are:
+  Speed (if I get the static typing working, I don't see why not)
+  Static whole program analysis to find possible bugs aid in optimization and maybe for adding dependent types expressed as pre and post conditions. I have many ideas here, but it is obviously hard.
+
+Shortcomings more or less by design are:
+  Less dynamic and hacky than, say, Io.
+  Compilation and type system will be slow for large programs. This may one day be rectified by caching results from previous compiler passes.
+  At first (but see above) the programs will be ridiculously slow and probably draw memory like crazy, too.
+
+I love programming languages and paradigms, but know almost nothing about compiler/interpreter design, so I will do stupid stuff in the implementation. I encourage you to tell me when I do or, better yet, provide a patch.

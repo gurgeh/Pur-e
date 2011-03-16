@@ -1,18 +1,18 @@
 from context import Context
 
 """
-Interpret
-  Core
-  Add + * >
+Construct unit tests
+. (if bugs get complicated, maybe remove resolve step)
+Static interpret (just type check, incl. arity)
 .
 Add tail recursion
-.
-Static interpret (just type check, incl. arity)
 .
 Lists (or some container anyway)
 .
 
 """
+
+LIVE = False
 
 class Call:
     def __init__(self, fun, arguments):
@@ -24,7 +24,8 @@ class Call:
             expr.resolve(context.nest())
 
     def interpret(self):
-        pass
+        self.value = self.fun.interpret().run([arg.interpret() for arg in self.arguments])
+        return self.value
 
 class Symbol:
     def __init__(self, name):
@@ -34,7 +35,7 @@ class Symbol:
         self.ref = context[self.name]
 
     def interpret(self):
-        self.value = maybeResolve(self.ref).value
+        self.value = self.ref.value
         return self.value
 
 class Literal:
@@ -45,7 +46,7 @@ class Literal:
         pass
 
     def interpret(self):
-        return self.s
+        return self.value
 
 class Let:
     def __init__(self, bindings, inexpr):
@@ -71,13 +72,25 @@ class Let:
         return self.value
 
 class FunArg:
-    pass #enough for now
+    def __init__(self):
+        self.stack = []
+
+    def push(self, val):
+        self.stack.append(val)
+        self.value = val
+
+    def pop(self):
+        x = self.stack.pop()
+        if self.stack:
+            self.value = self.stack[-1]
+        return x
 
 class Function:
     def __init__(self, names, expression):
         self.names = names
         self.expression = expression
         self.values = {}
+        self.value = self
 
     def resolve(self, context):
         for name in self.names:
@@ -87,6 +100,45 @@ class Function:
         
         self.expression.resolve(context)
 
+    def run(self, args):
+        for i, name in enumerate(self.names):
+            self.values[name].push(args[i])
+
+        x = self.expression.interpret()
+
+        for name in self.names:
+            self.values[name].pop()
+
+        return x
+
+    def interpret(self):
+        return self
+
+class Op:
+    def __init__(self):
+        self.value = self
+
+    def resolve(self, context):
+        pass
+
+    def interpret(self):
+        return self
+
+class OpPlus(Op):
+    def run(self, args):
+        return args[0].value + args[1].value
+class OpMinus(Op):
+    def run(self, args):
+        return args[0].value - args[1].value
+class OpMul(Op):
+    def run(self, args):
+        return args[0].value * args[1].value
+class OpGreater(Op):
+    def run(self, args):
+        return args[0].value > args[1].value
+
+
+
 class Lookup:
     def __init__(self, instance, key):
         self.instance = instance
@@ -95,29 +147,36 @@ class Lookup:
     def resolve(self, context):
         self.instance.resolve(context)
 
-class Instance:
-    def __init__(self, cls, arguments):
-        self.cls = cls
-        self.arguments = arguments
-
-    def resolve(self, context):
-        self.cls.resolve(context)
-
-        for expr in self.arguments:
-            expr.resolve(context.nest())
-
-class Class:
-    def __init__(self, constructor, bindings):
-        self.constructor = constructor
+    def interpret(self):
+        return self.instance.keys[self.key.interpret()]
+            
+class Object:
+    def __init__(self, parent, bindings):
+        self.parent = parent
         self.bindings = bindings
+        self.keys = {}
 
     def resolve(self, context):
-        for name, expr in self.bindings:
-            if expr.__class__ in RECURSIVES:
-                context[name] = expr
+        if self.parent.__class__ != Literal: #FIXME: literals should be objects too
+            self.parent.resolve(context)
 
-        for _, expr in self.bindings:
-            expr.resolve(context.nest())
+        if LIVE:
+            mycontext = context.nest()
+            for name, expr in self.bindings:
+                if expr.__class__ in RECURSIVES:
+                    mycontext[name] = expr
+
+            for _, expr in self.bindings:
+                expr.resolve(mycontext.nest()) #FIXME: need to handle recursion?
+
+    def interpret(self):
+        self.resolve(Context())
+        
+        for name, expr in self.bindings:
+            self.keys[name] = expr.interpret()
+
+        self.value = self
+        return self
 
 
 class If:
@@ -131,4 +190,8 @@ class If:
         self.thenexpr.resolve(context)
         self.elseexpr.resolve(context)
 
-RECURSIVES = {Class, Function}
+    def interpret(self):
+        self.value = self.thenexpr.interpret() if self.ifexpr.interpret() else self.elseexpr.interpret()
+        return self.value
+
+RECURSIVES = {Object, Function}

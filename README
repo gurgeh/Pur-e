@@ -1,6 +1,6 @@
 Purée is a new language with the following odd mix (purée, one might say) of features:
 Pure functional (like Haskell and Clean)
-Uniqueness typing (like Clean, unlike Haskell)
+Uniqueness typing provides I/O (like Clean and maybe a few obscure LISPs, unlike Haskell which uses monads)
 Strict per default (like every language on earth except Haskell. More or less)
 Generators/yield/lazy-by-request (like Python, Disciple and well.. all the good ones :)
 Functional object system (like O'Caml. The system will probably be prototype based. sort of.)
@@ -18,7 +18,7 @@ Design goals are:
 
 Possible later goals in an ideal world are:
   Speed (if I get the static typing working, I don't see why not)
-  Static whole program analysis to find possible bugs aid in optimization and maybe for adding dependent types expressed as pre and post conditions. I have many ideas here, but it is obviously hard.
+  Static whole program analysis to find possible bugs aid in optimization and maybe for adding dependent types (like Agda, but more general and less computable) expressed as pre and post conditions. I have many ideas here, but it is obviously hard.
 
 Shortcomings more or less by design are:
   Less dynamic and hacky than, say, Io.

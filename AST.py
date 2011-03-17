@@ -9,6 +9,7 @@ Add tail recursion
 .
 Lists (or some container anyway)
 .
+Uniqueness typing (read up on Clean and LinearML)
 
 """
 
@@ -23,9 +24,15 @@ class Call:
         for expr in self.arguments:
             expr.resolve(context.nest())
 
+        self.fun.resolve(context.nest())
+
     def interpret(self):
         self.value = self.fun.interpret().run([arg.interpret() for arg in self.arguments])
         return self.value
+
+class Value:
+    def __init__(self, value):
+        self.value = value
 
 class Symbol:
     def __init__(self, name):
@@ -46,27 +53,31 @@ class Literal:
         pass
 
     def interpret(self):
-        return self.value
+        return self
 
 class Let:
     def __init__(self, bindings, inexpr):
         self.bindings = bindings
         self.inexpr = inexpr
         self.value = None
+        self.values = {}
 
     def resolve(self, context):
         for name, expr in self.bindings:
             if expr.__class__ in RECURSIVES:
                 context[name] = expr
 
-        for _, expr in self.bindings:
+        for name, expr in self.bindings:
+            arg = FunArg()
+            self.values[name] = arg
+            context[name] = arg
             expr.resolve(context.nest())
 
         return self.inexpr.resolve(context.nest())
 
     def interpret(self):
-        for _, expr in self.bindings:
-            expr.interpret()
+        for name, expr in self.bindings:
+            self.values[name].value = expr.interpret()
 
         self.value = self.inexpr.interpret()
         return self.value
@@ -115,27 +126,25 @@ class Function:
         return self
 
 class Op:
-    def __init__(self):
-        self.value = self
-
     def resolve(self, context):
         pass
 
     def interpret(self):
+        self.value = self
         return self
 
 class OpPlus(Op):
     def run(self, args):
-        return args[0].value + args[1].value
+        return Value(args[0].value + args[1].value)
 class OpMinus(Op):
     def run(self, args):
-        return args[0].value - args[1].value
+        return Value(args[0].value - args[1].value)
 class OpMul(Op):
     def run(self, args):
-        return args[0].value * args[1].value
+        return Value(args[0].value * args[1].value)
 class OpGreater(Op):
     def run(self, args):
-        return args[0].value > args[1].value
+        return Value(args[0].value > args[1].value)
 
 
 
@@ -191,7 +200,7 @@ class If:
         self.elseexpr.resolve(context)
 
     def interpret(self):
-        self.value = self.thenexpr.interpret() if self.ifexpr.interpret() else self.elseexpr.interpret()
+        self.value = self.thenexpr.interpret() if self.ifexpr.interpret().value else self.elseexpr.interpret()
         return self.value
 
 RECURSIVES = {Object, Function}

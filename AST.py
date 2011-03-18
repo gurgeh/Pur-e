@@ -2,15 +2,45 @@ from context import Context
 
 """
 Construct unit tests
-. (if bugs get complicated, maybe remove resolve step)
-Static interpret (just type check, incl. arity)
 .
-Add tail recursion
+How implement strict/lazy arguments?
+  Macros? (Is this part of static interpretation?)
+  Some sort of annotation?
+  Code block is an object?
 .
-Lists (or some container anyway)
+Make everything an object
+  Literals
+    Int.+, etc
+  Symbols
+  Argument-list
 .
-Uniqueness typing (read up on Clean and LinearML)
+Static interpret
+  Type check
+  Arity check
+  Uniqueness typing (read up on Clean and LinearML)
+  Precompute
+  Metadata for compiler
+.
+Parser
+.
+Start Prelude
+.
+World object
 
+Future:
+  Should the static interpreter be extended to a compile time language (the same language, ideally),
+  where various assertions can be made and code constructed?
+
+  Generators or something
+  Should objects have priv/publ/prot sections? Should modules be objects that expose the public sections?
+  Modules
+  Polymorphism
+  Exception handling (statically determine exception safe code)
+  Concurrency
+  FFI
+  Garbage collection (how much can be made static with uniq typing?)
+  Compiler
+  Advanced static interpretation of recursion
 """
 
 LIVE = False
@@ -145,7 +175,9 @@ class OpMul(Op):
 class OpGreater(Op):
     def run(self, args):
         return Value(args[0].value > args[1].value)
-
+class OpEq(Op):
+    def run(self, args):
+        return Value(args[0].value == args[1].value)
 
 
 class Lookup:
@@ -154,10 +186,11 @@ class Lookup:
         self.key = key
 
     def resolve(self, context):
-        self.instance.resolve(context)
+        #self.key.resolve(context.nest())
+        self.instance.resolve(context.nest())
 
     def interpret(self):
-        return self.instance.keys[self.key.interpret()]
+        return self.instance.interpret().keys[self.key]
             
 class Object:
     def __init__(self, parent, bindings):

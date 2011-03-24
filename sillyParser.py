@@ -4,12 +4,16 @@ class LET: pass
 class IF: pass
 class FUN: pass
 
+COREOPS = {'+':OpPlus, '-':OpMinus, '*':OpMul, '>':OpGreater, '==':OpEq}
+
 def parseList(l):
     head = l[0]
     if head in COMD:
         return COMD[head](l[1:])
+    elif head in COREOPS:
+        return Call(COREOPS[head](), parseAll(l[1:]))
     else:
-        return Call(Symbol(head))
+        return Call(Symbol(head), parseAll(l[1:]))
         
 
 def parse(x):
@@ -20,6 +24,9 @@ def parse(x):
     else:
         return Symbol(x)
 
+
+def parseAll(l):
+    return [parse(x) for x in l]
 
 def let(l):
     bindings = [(sym, parse(expr)) for sym, expr in l[0]]

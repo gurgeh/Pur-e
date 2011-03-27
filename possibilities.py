@@ -2,7 +2,7 @@
 
 class Poss:
     def __init__(self, *args):
-        self.values = args
+        self.values = list(args)
 
     def add(self, val):
         self.values.append(val)
@@ -12,4 +12,8 @@ class Poss:
             self.add(val)
 
     def __iter__(self):
-        return self.values
+        return self.values.__iter__()
+
+
+    def __repr__(self):
+        return str(self.values)

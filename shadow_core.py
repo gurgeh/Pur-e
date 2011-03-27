@@ -1,21 +1,21 @@
+from possibilities import Poss
+from generalizer import Generalizer
+
+
 """
-I need a Possibilities-object which has one or more values, with conditions attached. It is iterable, so it can be used to generate more possibilites.
 
-It may be a tree structure, to represent a host of subvalues with the some preconditions in common. I need to think more of execution, but maybe this way I mitigate exponential path explosion somewhat?
-
----
-
-Implement Poss
 N
-.
-recursion (maybe a max_recursive_analysis param, so we can go further than 1)
+Deal with None
 T
 generalizer
 L
 !
 design class system
+P
 implement in shadow
 convert DataBool, etc, if necessary
+.
+containers
 .
 better mul
 use conditions and constraints in reasoning
@@ -28,7 +28,7 @@ currying? (probably just syntactic sugar for wrapper function)
 generators?
 optional lazy arguments (like if and or)?
 
-module system and parser and we are ready for others to test
+module system, some missing core and parser and we are ready for others to test
 
 """
 
@@ -44,24 +44,32 @@ class SLet:
         for name, expr in self.bindings:
             context[name] = expr.analyze(context.nest())
 
-        return self.inexpr.analyze(context.nest()):
+        return self.inexpr.analyze(context.nest())
 
 class SFunction:
     def __init__(self, argnames, expr=None):
         self.argnames = argnames
         self.expr = expr
+        self.inprogress = Generalizer()
+        self.funcontext = None
 
     def analyze(self, context):
+        self.funcontext = context
         return Poss(self)
 
     def callalyze(self, context, args):
         assert len(args) == len(self.argnames)
+
+        if self.inprogress.has(args):
+            return self.inprogress.get(args)
         
         for name, expr in zip(self.argnames, args):
             context[name] = expr
 
         if self.expr:
-            return self.expr.analyze(context.nest())
+            ret = self.expr.analyze(context.nest())
+            self.inprogress.set(args, ret)
+            return ret
         
 class SCall:
     def __init__(self, fun, args):
@@ -69,7 +77,11 @@ class SCall:
         self.args = args
 
     def analyze(self, context):
-        return Poss(*[fun.callalyze(context, [x.analyze(context.nest()) for x in self.args]) for fun in self.fun])
+        p = Poss()
+        for fun in self.fun.analyze(context.nest()):
+            retvals = fun.callalyze(fun.funcontext.nest(), [x.analyze(context.nest()) for x in self.args])
+            p.extend(retvals)
+        return p
 
 class SSymbol:
     def __init__(self, sym):
@@ -90,7 +102,7 @@ class SIf:
         for poss in self.condexpr.analyze(context.nest()):
             assert isBool(poss)
 
-            p.extend((thenexpr if poss.exact else elseexpr).
+            p.extend((self.thenexpr if poss.exact else self.elseexpr).
                      analyze(context.nest()))
         return p
 
@@ -109,7 +121,7 @@ def alwaysNumber(poss):
     return all(isNumber(p) for p in poss)
 
 def real(*args):
-    return all(x.exact is not None for x in args)
+    return all(x is not None for x in args)
 
 class OpEq(SFunction): #Numeric Eq for now
     def __init__(self):
@@ -239,13 +251,19 @@ class OpMul(SFunction):
 
 #---
 
+def checkC(cs):
+    return '' if cs is None else ', when %s' % cs 
+
 class DataBool:
     def __init__(self, exact=None, conds=None):
         self.exact = exact
         self.conds = conds
 
-    def analyze(self, context):
+    def analyze(self, _):
         return Poss(self)
+
+    def __repr__(self):
+        return 'Bool(%s), %s' % (self.exact, self.conds)
 
 class DataInt:
     def __init__(self, exact=None, min=None, max=None, constraints=None):
@@ -257,5 +275,10 @@ class DataInt:
             self.min = min
             self.max = max
 
-    def analyze(self, context):
+    def analyze(self, _):
         return Poss(self)
+
+    def __repr__(self):
+        if self.exact is not None:
+            return 'Int(%s)%s' % (self.exact, checkC(self.constraints))
+        return '%s <= Int <= %s%s' % (self.min, self.max, checkC(self.constraints))

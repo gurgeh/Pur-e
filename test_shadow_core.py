@@ -22,6 +22,7 @@ EXP['fun2']  = SLet([('a', DataInt(30))],
                     SLet([('fun', SFunction(('b',), EXP['min1']))],
                          SLet([('a', DataInt(0)), ('b', DataInt(0))],
                               SCall(SSymbol('fun'), [DataInt(40)]))))
+
 EXP['rfun1'] = SLet([('fac', SFunction(['n'], SIf(
         SCall(OpGreater(), [SSymbol('n'), DataInt(1)]),
         SCall(OpMul(), [SSymbol('n'), SCall(SSymbol('fac'),
@@ -29,6 +30,11 @@ EXP['rfun1'] = SLet([('fac', SFunction(['n'], SIf(
         DataInt(1))))],
                     SCall(SSymbol('fac'), [DataInt(10)]))
 
+#two constant paramters (i.e infinite recursion)
+#one constant parameter (bool) and one changing
+#two changing parameters (int and bool)
+
+#check rfun that returns something new in recur
 
 class TestShadow:
     def setup(self):

@@ -4,33 +4,82 @@ from generalizer import Generalizer
 
 """
 
-N
-Deal with None
-T
-generalizer
-L
-!
-design class system
+(2)
+design class system and the rest in generalizer
+  solved with "generalized lets"?
+  continuations?
+  context + code blocks?
 P
-implement in shadow
-convert DataBool, etc, if necessary
-.
-containers
-.
-better mul
-use conditions and constraints in reasoning
+
+(3)
+solve implementation issues in generalizer
+start cleanup, refactoring, implementation
+
+(4)
+more CRI
+
+(5)
+finish CRI
+ (incl. everything class based, containers, conds and constrs, etc)
+
+--
 .
 uniqueness typing
 .
-world object
-.
-currying? (probably just syntactic sugar for wrapper function)
-generators?
-optional lazy arguments (like if and or)?
+set definite name
+blog post
 
-module system, some missing core and parser and we are ready for others to test
+-- release factsite, while thinking through stuff below.
+
+think through:
+  currying? (probably just syntactic sugar for wrapper function)
+  generators?
+  continuations?
+  exceptions?
+  optional lazy arguments (like if and or)?
+  macros
+  module system
+  polymorphism
+  communication with shadow (promise, must, custom shadow, etc)
+  syntax
+
+implement the above in shadow
+
+implement some missing core:
+  List
+  Array/Vector (list enough for now?)
+  Map (associative list?)
+  DataString
+  string operations
+  DataFloat
+  more integer and float operations
+  missing bool operations
+  file I/O
+  arguments in
+
+interpreter
+do simple parser and blog post and we are ready for others to test
+
+--
+priv/pub/prot objects
+concurrency (multi core)
+GC
+compilation (LLVM, I think)
+advanced analytics
+FFI
+good error messages
+standard library
+inter-process communication analysis
+GPGPU
+cluster over machines
+debugging
+profiling
+standard (enforced?) syntax conventions, capital letters, function names, etc
 
 """
+
+class Recursion(Exception):
+    pass
 
 class SLet:
     def __init__(self, bindings, inexpr):
@@ -52,23 +101,48 @@ class SFunction:
         self.expr = expr
         self.inprogress = Generalizer()
         self.funcontext = None
+        self.norecur = False
+        self.recur_detected = False
 
     def analyze(self, context):
         self.funcontext = context
         return Poss(self)
 
     def callalyze(self, context, args):
+        if self.norecur:
+            self.recur_detected = True
+            raise Recursion(self)
         assert len(args) == len(self.argnames)
-
-        if self.inprogress.has(args):
-            return self.inprogress.get(args)
         
         for name, expr in zip(self.argnames, args):
             context[name] = expr
 
         if self.expr:
-            ret = self.expr.analyze(context.nest())
-            self.inprogress.set(args, ret)
+            outer = False
+            if not self.recur_detected:
+                self.norecur = True #initial run without recursion
+                try:
+                    ret = self.expr.analyze(context.nest())
+                    self.inprogress.poss_returns = ret
+                except Recursion, fun:
+                    self.norecur = False
+                    if fun is self:
+                        print 'Possible infinite recursion detected in', self
+                    raise Recursion, fun
+                self.norecur = False
+                outer = True
+            
+            if self.recur_detected:
+                if self.inprogress.has(args):
+                    return self.inprogress.get(args)
+                while True:
+                    ret = self.expr.analyze(context.nest())
+                    self.inprogress.set(args, ret)
+                    if outer and not self.inprogress.poss_returns.contains(ret):
+                        self.inprogress.poss_returns = ret
+                    else:
+                        break
+            
             return ret
         
 class SCall:
@@ -101,9 +175,11 @@ class SIf:
         p = Poss()
         for poss in self.condexpr.analyze(context.nest()):
             assert isBool(poss)
-
-            p.extend((self.thenexpr if poss.exact else self.elseexpr).
-                     analyze(context.nest()))
+            try:
+                p.extend((self.thenexpr if poss.exact else self.elseexpr).
+                         analyze(context.nest()))
+            except Recursion, _:
+                pass
         return p
 
 #-----
@@ -262,6 +338,11 @@ class DataBool:
     def analyze(self, _):
         return Poss(self)
 
+    def contains(self, d):
+        if self.exact is not None:
+            return self.exact == d.exact
+        return True
+
     def __repr__(self):
         return 'Bool(%s), %s' % (self.exact, self.conds)
 
@@ -277,6 +358,13 @@ class DataInt:
 
     def analyze(self, _):
         return Poss(self)
+
+    def contains(self, d):
+        if self.exact is not None:
+            return self.exact == d.exact
+        if self.min > d.min: return False
+        if self.max < d.max: return False
+        return True
 
     def __repr__(self):
         if self.exact is not None:

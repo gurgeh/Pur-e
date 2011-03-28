@@ -17,6 +17,7 @@ Make everything an object
 Static interpret
   Type check
   Arity check
+  Effect check (is calculation ever used?)
   Uniqueness typing (read up on Clean and LinearML)
   Precompute
   Metadata for compiler

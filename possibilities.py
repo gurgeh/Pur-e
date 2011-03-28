@@ -14,6 +14,16 @@ class Poss:
     def __iter__(self):
         return self.values.__iter__()
 
-
     def __repr__(self):
         return str(self.values)
+
+    def contains(self, p2):
+        for poss2 in p2:
+            found = False
+            for poss1 in self:
+                if poss1.contains(poss2):
+                    found = True
+                    break
+            if not found:
+                return False
+        return True

@@ -4,63 +4,7 @@ from generalizer import Generalizer
 
 """
 
-(2)
-design class system and the rest in generalizer
-  solved with "generalized lets"?
-  continuations?
-  context + code blocks?
-P
-
-(3)
-solve implementation issues in generalizer
-start cleanup, refactoring, implementation
-
-(4)
-more CRI
-
-(5)
-finish CRI
- (incl. everything class based, containers, conds and constrs, etc)
-
---
-.
-uniqueness typing
-.
-set definite name
-blog post
-
--- release factsite, while thinking through stuff below.
-
-think through:
-  currying? (probably just syntactic sugar for wrapper function)
-  generators?
-  continuations?
-  exceptions?
-  optional lazy arguments (like if and or)?
-  macros
-  module system
-  polymorphism
-  communication with shadow (promise, must, custom shadow, etc)
-  syntax
-
-implement the above in shadow
-
-implement some missing core:
-  List
-  Array/Vector (list enough for now?)
-  Map (associative list?)
-  DataString
-  string operations
-  DataFloat
-  more integer and float operations
-  missing bool operations
-  file I/O
-  arguments in
-
-interpreter
-do simple parser and blog post and we are ready for others to test
-
---
+-- later
 priv/pub/prot objects
 concurrency (multi core)
 GC
@@ -101,49 +45,19 @@ class SFunction:
         self.expr = expr
         self.inprogress = Generalizer()
         self.funcontext = None
-        self.norecur = False
-        self.recur_detected = False
 
     def analyze(self, context):
         self.funcontext = context
         return Poss(self)
 
     def callalyze(self, context, args):
-        if self.norecur:
-            self.recur_detected = True
-            raise Recursion(self)
         assert len(args) == len(self.argnames)
         
         for name, expr in zip(self.argnames, args):
             context[name] = expr
 
         if self.expr:
-            outer = False
-            if not self.recur_detected:
-                self.norecur = True #initial run without recursion
-                try:
-                    ret = self.expr.analyze(context.nest())
-                    self.inprogress.poss_returns = ret
-                except Recursion, fun:
-                    self.norecur = False
-                    if fun is self:
-                        print 'Possible infinite recursion detected in', self
-                    raise Recursion, fun
-                self.norecur = False
-                outer = True
-            
-            if self.recur_detected:
-                if self.inprogress.has(args):
-                    return self.inprogress.get(args)
-                while True:
-                    ret = self.expr.analyze(context.nest())
-                    self.inprogress.set(args, ret)
-                    if outer and not self.inprogress.poss_returns.contains(ret):
-                        self.inprogress.poss_returns = ret
-                    else:
-                        break
-            
-            return ret
+            return self.expr.analyze(context.nest())
         
 class SCall:
     def __init__(self, fun, args):
@@ -170,16 +84,31 @@ class SIf:
         self.condexpr = condexpr
         self.thenexpr = thenexpr
         self.elseexpr = elseexpr
+        self.tryreturn = {True:None, False:None}
+        self.triedreturn = {True:False, False:False}
 
     def analyze(self, context):
         p = Poss()
         for poss in self.condexpr.analyze(context.nest()):
             assert isBool(poss)
-            try:
-                p.extend((self.thenexpr if poss.exact else self.elseexpr).
-                         analyze(context.nest()))
-            except Recursion, _:
-                pass
+            self.lock.append(context)
+
+            if self.islocked(context, poss):
+                self.triedreturn[poss.exact] = True
+                if self.tryreturn[poss.exact] is not None:
+                    p.extend(self.tryreturn[poss.exact])
+            else:
+                self.lock.append((context, poss.exact))
+                while True:
+                    ret = (self.thenexpr if poss.exact else self.elseexpr).analyze(context.nest())
+                    if self.triedreturn[poss.exact]:
+                        if ret.contains(self.tryreturn[poss.exact]): #Todo: implement contains
+                            self.tryreturn = ret
+                    else:
+                        self.triedreturn[poss.exact] = False
+                        self.tryreturn[poss.exact] = None
+                        break
+                self.lock.pop()
         return p
 
 #-----

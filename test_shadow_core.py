@@ -23,12 +23,29 @@ EXP['fun2']  = SLet([('a', DataInt(30))],
                          SLet([('a', DataInt(0)), ('b', DataInt(0))],
                               SCall(SSymbol('fun'), [DataInt(40)]))))
 
-EXP['rfun1'] = SLet([('fac', SFunction(['n'], SIf(
-        SCall(OpGreater(), [SSymbol('n'), DataInt(1)]),
-        SCall(OpMul(), [SSymbol('n'), SCall(SSymbol('fac'),
-                                            [SCall(OpMinus(), [SSymbol('n'), DataInt(1)])])]),
-        DataInt(1))))],
-                    SCall(SSymbol('fac'), [DataInt(10)]))
+def fac(n):
+    return SLet([('fac', SFunction(['n'], SIf(
+                        SCall(OpGreater(), [SSymbol('n'), DataInt(1)]),
+                        SCall(OpMul(), [SSymbol('n'), SCall(SSymbol('fac'),
+                                                            [SCall(OpMinus(), [SSymbol('n'), DataInt(1)])])]),
+                        DataInt(1))))],
+                SCall(SSymbol('fac'), [n]))
+
+EXP['rfun1'] = fac(DataInt(10))
+EXP['rfun2'] = fac(DataInt())
+EXP['rfun3'] = fac(DataBool()) #should generate error
+
+def cls1(expr):
+    return SCall(SLookup(SLet([('myclass', 
+                                SFunction(['a'], 
+                                          SLet([
+                                    ('b', DataInt(66)),
+                                    ('fun', SFunction([], EXP['min1']))],
+                                               SGetContext())))], 
+                              SCall(SSymbol('myclass'), [expr])), 'fun'), [])
+
+EXP['cls1'] = cls1(DataInt(20))
+
 
 #two constant paramters (i.e infinite recursion)
 #one constant parameter (bool) and one changing

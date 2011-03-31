@@ -1,16 +1,15 @@
 """
- recursion as described below.
- no forced generalization at first - only lock if-branches that encompass earlier run
+ simple parser
 --
- context
-   store-context
-   inherit-context
-   get-symbol (continues to normal scope if not found in context)
---
- lists
+ lists (cons, head, tail, map, filter)
+
  vector data type
 --
  constraints
+--
+ detect possible infinite recursion
+--
+  inherit from context
 --
  missing core
    float
@@ -21,9 +20,7 @@
 --
  world and simple io
 --
- simple parser
---
- interpreter
+ interpreter with tail call optimization. (maybe add to analysis too)
 --
  prelude
 --

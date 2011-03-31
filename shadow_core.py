@@ -1,3 +1,4 @@
+from context import Context
 from possibilities import Poss
 from generalizer import Generalizer
 
@@ -8,6 +9,8 @@ from generalizer import Generalizer
 priv/pub/prot objects
 concurrency (multi core)
 GC
+a backtracking version of if that can yield multiple values if there is a backtracking if "above"
+ maybe like the (amb) operator in LISP
 compilation (LLVM, I think)
 advanced analytics
 FFI
@@ -45,6 +48,9 @@ class SFunction:
         self.expr = expr
         self.inprogress = Generalizer()
         self.funcontext = None
+
+    def contains(self, fun):
+        return self == fun
 
     def analyze(self, context):
         self.funcontext = context
@@ -86,29 +92,72 @@ class SIf:
         self.elseexpr = elseexpr
         self.tryreturn = {True:None, False:None}
         self.triedreturn = {True:False, False:False}
+        self.lock = {True:[], False:[]}
+
+    def islocked(self, context, cond):
+        for source in self.lock[cond]:
+            if source.contains(context):
+                return True
+        return False
 
     def analyze(self, context):
         p = Poss()
+        thiscontext = context.flatcopy()
         for poss in self.condexpr.analyze(context.nest()):
             assert isBool(poss)
-            self.lock.append(context)
-
-            if self.islocked(context, poss):
+            if self.islocked(thiscontext, poss.exact): #bug what if several true returns from condexpr?
+                print 'locked context', thiscontext.local, poss.exact, self.tryreturn[poss.exact]
                 self.triedreturn[poss.exact] = True
                 if self.tryreturn[poss.exact] is not None:
                     p.extend(self.tryreturn[poss.exact])
             else:
-                self.lock.append((context, poss.exact))
+                self.lock[poss.exact].append(thiscontext)
                 while True:
                     ret = (self.thenexpr if poss.exact else self.elseexpr).analyze(context.nest())
                     if self.triedreturn[poss.exact]:
-                        if ret.contains(self.tryreturn[poss.exact]): #Todo: implement contains
-                            self.tryreturn = ret
-                    else:
-                        self.triedreturn[poss.exact] = False
-                        self.tryreturn[poss.exact] = None
-                        break
-                self.lock.pop()
+                        tryret = self.tryreturn[poss.exact]
+                        if tryret is None or not tryret.contains(ret):
+                            self.tryreturn[poss.exact] = ret
+                            continue
+                    
+                    p.extend(ret)
+                    self.triedreturn[poss.exact] = False
+                    self.tryreturn[poss.exact] = None
+                    break
+                self.lock[poss.exact].pop()
+        return p
+
+class SGetContext:
+    def analyze(self, context):
+        return Poss(context.flatcopy()) #a copy should not be needed..
+
+
+class SInheritContext: #design and implement later
+    def __init__(self, context, bindings):
+        self.sourceContext = context
+        self.bindings = bindings
+
+    def analyze(self, context):
+        self.sourceContext.analyze(context.nest()) #TODO: context.analyze
+        
+        for name, expr in self.bindings:
+            context[name] = expr
+
+        for name, expr in self.bindings:
+            context[name] = expr.analyze(context.nest())
+
+class SLookup:
+    def __init__(self, context, name):
+        self.mycontext = context
+        self.name = name
+
+    def analyze(self, context):
+        p = Poss()
+        for mycon in self.mycontext.analyze(context.nest()):
+            assert mycon.__class__ == Context, 'class was %s' % mycon.__class__.__name__
+
+            mycon.parent = context
+            p.extend(mycon[self.name])
         return p
 
 #-----
@@ -264,6 +313,11 @@ class DataBool:
         self.exact = exact
         self.conds = conds
 
+    def generalize(self, d):
+        if real(self.exact) and self.exact == d.exact:
+            return
+        self.exact = None
+
     def analyze(self, _):
         return Poss(self)
 
@@ -285,17 +339,33 @@ class DataInt:
             self.min = min
             self.max = max
 
+    def generalize(self, d):
+        if real(self.exact) and self.exact == d.exact:
+            return
+        if real(d.min, self.min):
+            self.min = min(self.min, d.min)
+        else:
+            self.min = None
+
+        if real(d.max, self.max):
+            self.max = min(self.max, d.max)
+        else:
+            self.max = None
+
+            
+
     def analyze(self, _):
         return Poss(self)
 
     def contains(self, d):
         if self.exact is not None:
             return self.exact == d.exact
-        if self.min > d.min: return False
-        if self.max < d.max: return False
+        if real(self.min) and (self.min > d.min or d.min is None): return False
+        if real(self.max) and (self.max < d.max or d.max is None): return False
         return True
 
     def __repr__(self):
         if self.exact is not None:
             return 'Int(%s)%s' % (self.exact, checkC(self.constraints))
-        return '%s <= Int <= %s%s' % (self.min, self.max, checkC(self.constraints))
+        return '%s <= Int <= %s' % (self.min, self.max)
+        #return '%s <= Int <= %s%s' % (self.min, self.max, checkC(self.constraints))

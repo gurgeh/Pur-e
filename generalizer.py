@@ -1,13 +1,20 @@
 """
+
+getcontext
+--
  simple parser
 --
  lists (cons, head, tail, map, filter)
-
+ full unit tests
+ stress test existing core
+--
  vector data type
 --
  constraints
 --
  detect possible infinite recursion
+ laziness analysis (just an idea so far. The reverse of Haskell's strictness analysis)
+ effect tracking
 --
   inherit from context
 --
@@ -22,11 +29,13 @@
 --
  interpreter with tail call optimization. (maybe add to analysis too)
 --
+ modules
+--
  prelude
 --
  documentation and first release to others
 --
- thorough testing and all the other necessary "later" stuff, like modules.
+ thorough testing and all the other necessary "later" stuff
 
 
 Design:
@@ -76,7 +85,7 @@ Design:
        otherwise, send context and raw expression to function (still needs if to branch)
 
      continuations?
-       context and expressions are enough
+       context and expressions are enough, but if I can add continuations and still analyze, I probably should.
 
      generators?
        not as such. for-interface of course.
@@ -88,9 +97,9 @@ Design:
        non-local unwinding seems powerful. The target of the unwind command may have to be determined
        statically. This can probably be added later, without much thought now.
 
+     first-class continuations would really be.. something. Can I analyze them?
      macros, custom shadow, promise and other ways to communicate with analyzer are added later
-     modules
-     syntax
+     more syntax
 
 To implement this complex beast, I will use an analytical loop that calls functions that yields subexpressions, when it wants to analyze them and gets the result sent back. The generator functions can also yield other commands, such as the backwards analysis mentioned below.
 This is also the easiest idea for an interpreter and a good way to get tail call optimization.

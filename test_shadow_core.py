@@ -4,6 +4,33 @@ from nose.tools import assert_equal, assert_raises, assert_true, eq_
 from shadow_core import *
 from context import Context
 
+"""
+object: symbol | literal
+arg: expression | symbol | literal
+expression:
+ (object member arg..)
+
+To return an object member instead of calling it, use the member function .
+ (object . key)
+
+
+{fac = {n} -> 
+  n > 1 ? n * fac(n - 1) 
+        : 1}
+in fac(10)
+
+5 + 3
+
+{ Int  : {val} -> ({+ : CPlus, - : CMin, self : val} let ),
+  Bool : {val} -> () }
+
+{a : 5}.a
+{bla : 
+   {val} -> ({x : val + 1} in context)}
+"""
+#{a : 11, b : 5} in (a - (3 + b))
+#
+
 EXP = {}
 EXP['plus1'] = SCall(OpPlus(), [DataInt(5), DataInt(3)])
 EXP['min1']  = SCall(OpMinus(), [SSymbol('a'), SCall(OpPlus(), [DataInt(3), SSymbol('b')])])
